@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   Clock
 } from 'lucide-react';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { CreditCard, Transaction, Category, FamilyMember, BankAccount } from '../types';
 import { 
   formatCurrency, 
@@ -131,17 +131,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
     .filter(item => item.amount > 0)
     .sort((a, b) => b.amount - a.amount);
 
-  // Member Spending Data for Bar Chart
-  const memberSpendingData = members.map(m => {
-    const totalSpent = filteredTransactions
-      .filter(t => t.type === 'expense' && !t.isTransfer && t.memberId === m.id)
-      .reduce((acc, t) => acc + t.amount, 0);
-    return {
-      name: m.name,
-      Gasto: totalSpent,
-      avatar: m.avatar,
-    };
-  });
+  const categoryPieTotal = categoryPieData.reduce((acc, item) => acc + item.amount, 0);
+
+  // Income by Category Chart Data
+  const incomeCategoryMap: Record<string, { name: string; amount: number; color: string }> = {};
+
+  filteredTransactions
+    .filter(t => t.type === 'income' && !t.isTransfer)
+    .forEach(t => {
+      const cat = categories.find(c => c.id === t.categoryId);
+      const catName = cat?.name || 'Outros';
+      const catColor = cat?.color || '#10b981';
+
+      if (!incomeCategoryMap[catName]) {
+        incomeCategoryMap[catName] = { name: catName, amount: 0, color: catColor };
+      }
+      incomeCategoryMap[catName].amount += t.amount;
+    });
+
+  const incomePieData = Object.values(incomeCategoryMap)
+    .filter(item => item.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+
+  const incomePieTotal = incomePieData.reduce((acc, item) => acc + item.amount, 0);
 
   // Recent 5 Transactions
   const recentTransactions = [...filteredTransactions]
@@ -371,20 +383,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     outerRadius={85}
                     paddingAngle={4}
                     dataKey="amount"
+                    label={({ amount }) =>
+                      categoryPieTotal > 0 ? `${((amount / categoryPieTotal) * 100).toFixed(0)}%` : ''
+                    }
+                    labelLine={false}
                   >
                     {categoryPieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), 'Gasto']}
+                    formatter={(value: number) => [
+                      `${formatCurrency(value)} (${categoryPieTotal > 0 ? ((value / categoryPieTotal) * 100).toFixed(1) : '0'}%)`,
+                      'Gasto',
+                    ]}
                     contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '12px', color: '#fff' }}
                   />
                   <Legend
                     layout="vertical"
                     align="right"
                     verticalAlign="middle"
-                    formatter={(value) => <span className="text-xs text-slate-300">{value}</span>}
+                    formatter={(value, entry: any) => {
+                      const amount = entry?.payload?.amount ?? 0;
+                      const percent = categoryPieTotal > 0 ? ((amount / categoryPieTotal) * 100).toFixed(0) : '0';
+                      return <span className="text-xs text-slate-300">{value} ({percent}%)</span>;
+                    }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -397,29 +420,62 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
         </div>
 
-        {/* Chart 2: Spending by Family Member */}
+        {/* Chart 2: Income by Category */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
           <div>
-            <h3 className="text-base font-bold text-white mb-1">Gastos por Membro da Família</h3>
+            <h3 className="text-base font-bold text-white mb-1">Receitas por Categoria</h3>
             <p className="text-xs text-slate-400 mb-4">
-              Comparativo de gastos divididos entre os integrantes
+              Distribuição das receitas totais do grupo selecionado
             </p>
           </div>
 
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={memberSpendingData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} />
-                <Tooltip
-                  formatter={(value: number) => [formatCurrency(value), 'Total Gastos']}
-                  contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '12px', color: '#fff' }}
-                />
-                <Bar dataKey="Gasto" fill="#10b981" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {incomePieData.length > 0 ? (
+            <div className="h-64 w-full flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={incomePieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={4}
+                    dataKey="amount"
+                    label={({ amount }) =>
+                      incomePieTotal > 0 ? `${((amount / incomePieTotal) * 100).toFixed(0)}%` : ''
+                    }
+                    labelLine={false}
+                  >
+                    {incomePieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => [
+                      `${formatCurrency(value)} (${incomePieTotal > 0 ? ((value / incomePieTotal) * 100).toFixed(1) : '0'}%)`,
+                      'Receita',
+                    ]}
+                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '12px', color: '#fff' }}
+                  />
+                  <Legend
+                    layout="vertical"
+                    align="right"
+                    verticalAlign="middle"
+                    formatter={(value, entry: any) => {
+                      const amount = entry?.payload?.amount ?? 0;
+                      const percent = incomePieTotal > 0 ? ((amount / incomePieTotal) * 100).toFixed(0) : '0';
+                      return <span className="text-xs text-slate-300">{value} ({percent}%)</span>;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-64 flex flex-col items-center justify-center text-slate-500 text-sm">
+              <AlertCircle className="w-8 h-8 mb-2 stroke-1" />
+              <span>Nenhuma receita registrada para exibir no gráfico</span>
+            </div>
+          )}
         </div>
       </div>
 

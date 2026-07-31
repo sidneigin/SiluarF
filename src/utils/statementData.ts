@@ -5,6 +5,7 @@ import {
   Category,
   FamilyMember,
 } from '../types';
+import { getNextMonthYear } from './finance';
 
 export interface StatementRange {
   start: string; // YYYY-MM-DD
@@ -13,6 +14,24 @@ export interface StatementRange {
 
 export function inRange(dateStr: string, range: StatementRange): boolean {
   return dateStr >= range.start && dateStr <= range.end;
+}
+
+/**
+ * Returns every invoice month (YYYY-MM) that overlaps a date range, e.g.
+ * a range spanning 2026-07-01 to 2026-08-15 returns ['2026-07', '2026-08'].
+ */
+export function monthsInRange(range: StatementRange): string[] {
+  const startMonthYear = range.start.slice(0, 7);
+  const endMonthYear = range.end.slice(0, 7);
+  const months: string[] = [];
+  let cursor = startMonthYear;
+  let guard = 0;
+  while (cursor <= endMonthYear && guard < 120) {
+    months.push(cursor);
+    cursor = getNextMonthYear(cursor, 1);
+    guard += 1;
+  }
+  return months;
 }
 
 export function categoryName(categories: Category[], id: string): string {

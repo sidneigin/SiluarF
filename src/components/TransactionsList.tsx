@@ -14,7 +14,7 @@ import {
   X
 } from 'lucide-react';
 import { Transaction, Category, FamilyMember, CreditCard, BankAccount } from '../types';
-import { formatCurrency, formatDate, formatMonthYear, getInvoiceMonthYearForDate } from '../utils/finance';
+import { formatCurrency, formatDate, formatMonthYear, getInvoiceMonthYearForDate, getNextMonthYear } from '../utils/finance';
 
 interface TransactionsListProps {
   transactions: Transaction[];
@@ -65,7 +65,14 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
       }
       const card = cards.find((c) => c.id === finalTx.creditCardId);
       if (card) {
-        finalTx.invoiceMonthYear = getInvoiceMonthYearForDate(finalTx.date, card.closingDay);
+        // Transactions that are part of an installment purchase all share the
+        // same purchase `date`; only invoiceMonthYear differs between them.
+        // Recalculating naively from `date` would always land on the 1st
+        // installment's invoice, so we re-apply this transaction's own
+        // installment offset (installmentCurrent) on top of the base invoice.
+        const baseInvoiceMonthYear = getInvoiceMonthYearForDate(finalTx.date, card.closingDay);
+        const offset = finalTx.installmentCurrent ? finalTx.installmentCurrent - 1 : 0;
+        finalTx.invoiceMonthYear = getNextMonthYear(baseInvoiceMonthYear, offset);
       }
       delete finalTx.bankAccountId;
     }
@@ -377,7 +384,10 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
                       if (!prev) return null;
                       if (prev.paymentMethod === 'credit_card') {
                         const card = cards.find((c) => c.id === (prev.creditCardId || cards[0]?.id));
-                        const invoiceMonthYear = card ? getInvoiceMonthYearForDate(newDate, card.closingDay) : prev.invoiceMonthYear;
+                        const offset = prev.installmentCurrent ? prev.installmentCurrent - 1 : 0;
+                        const invoiceMonthYear = card
+                          ? getNextMonthYear(getInvoiceMonthYearForDate(newDate, card.closingDay), offset)
+                          : prev.invoiceMonthYear;
                         return { ...prev, date: newDate, invoiceMonthYear };
                       }
                       return { ...prev, date: newDate };
@@ -448,7 +458,10 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
                       } else {
                         const cardId = prev.creditCardId || cards[0]?.id || '';
                         const card = cards.find((c) => c.id === cardId);
-                        const invoiceMonthYear = card ? getInvoiceMonthYearForDate(prev.date, card.closingDay) : prev.invoiceMonthYear;
+                        const offset = prev.installmentCurrent ? prev.installmentCurrent - 1 : 0;
+                        const invoiceMonthYear = card
+                          ? getNextMonthYear(getInvoiceMonthYearForDate(prev.date, card.closingDay), offset)
+                          : prev.invoiceMonthYear;
                         return {
                           ...prev,
                           paymentMethod: 'credit_card',
@@ -475,7 +488,10 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
                       setEditingTx((prev) => {
                         if (!prev) return null;
                         const card = cards.find((c) => c.id === newCardId);
-                        const invoiceMonthYear = card ? getInvoiceMonthYearForDate(prev.date, card.closingDay) : prev.invoiceMonthYear;
+                        const offset = prev.installmentCurrent ? prev.installmentCurrent - 1 : 0;
+                        const invoiceMonthYear = card
+                          ? getNextMonthYear(getInvoiceMonthYearForDate(prev.date, card.closingDay), offset)
+                          : prev.invoiceMonthYear;
                         return { ...prev, creditCardId: newCardId, invoiceMonthYear };
                       });
                     }}

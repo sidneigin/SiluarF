@@ -90,6 +90,36 @@ src/
 
 ---
 
-## 📄 Licença
+## 🖥️ Colocando em Produção Local (Windows)
+
+Como todos os dados ficam salvos no `localStorage` do navegador, o Siluar **não precisa de nenhum servidor na nuvem**. Ele pode rodar permanentemente na sua própria máquina.
+
+### 1. Gerar a build de produção
+
+```powershell
+npm run build
+```
+
+Isso cria a pasta `dist/` com os arquivos otimizados (versão real de produção, diferente do modo de desenvolvimento).
+
+### 2. Iniciar automaticamente
+
+Dê duplo clique em **`iniciar-siluar.bat`** (na raiz do projeto). Ele:
+- Gera a build (`npm run build`) automaticamente, caso a pasta `dist/` ainda não exista.
+- Instala o pacote `serve` (servidor estático leve), se necessário.
+- Sobe o app em **http://localhost:3000**.
+
+### 3. Deixar rodando sempre que o Windows iniciar (opcional)
+
+1. Pressione `Win + R`, digite `shell:startup` e tecle Enter.
+2. Crie um **atalho** do arquivo `iniciar-siluar.bat` dentro dessa pasta.
+
+A partir daí, o Siluar sobe sozinho em segundo plano toda vez que o Windows é ligado — basta abrir `http://localhost:3000` no navegador.
+
+### 4. Acesso como app (opcional)
+
+No Chrome ou Edge, acesse `http://localhost:3000`, abra o menu (⋮) e escolha **"Instalar app"** (ou "Criar atalho"). Isso cria um ícone que abre o Siluar como se fosse um programa nativo, sem barra de endereço.
+
+
 
 Este projeto está licenciado sob os termos da licença Apache 2.0.
